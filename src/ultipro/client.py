@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from zeep import xsd
+import csv
 import os
 import requests
 import backoff
@@ -147,7 +148,21 @@ class UltiProClient:
         report_path = self.get_report_path_by_name(context, report_name)
         k = self.execute_report(context, report_path, delimiter=delimiter)
         r = self.retrieve_report(k)
-        return r["body"]["ReportStream"].decode("unicode-escape")
+        report = r["body"]["ReportStream"].decode("unicode-escape").split("\r\n")
+        csvreader = csv.reader(report)
+        headers = next(csvreader)
+        output = []
+        for row in csvreader:
+            if len(row) > 0:
+                output.append(
+                    dict(
+                        map(
+                            lambda rowitem: (headers[rowitem], row[rowitem]),
+                            range(len(row)),
+                        )
+                    )
+                )
+        return output
 
     def retrieve_report(self, report_key):
         zeep_client = ZeepClient(f"{self.base_url}{'BiStreamingService'}")
